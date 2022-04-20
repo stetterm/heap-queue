@@ -154,7 +154,21 @@ pub mod sorted_queue {
             self.swap(0, self.heap.len()-1);
             let (rem_val, rem_ref) = self.heap.remove(self.heap.len()-1);
             self.sift_down(0);
+            self.map.remove(rem_ref);
             Some((rem_val, rem_ref))
+        }
+
+        ///
+        /// If this object is found in the heap,
+        /// then it is returned along with its weight.
+        /// 
+        pub fn get_weight(&self, obj: &'a F) -> Option<T> {
+            let heap_index = match self.map.get(obj) {
+                Some(i) => i,
+                None => return None,
+            };
+            let (ret_weight, _) = self.heap[*heap_index];
+            Some(ret_weight)
         }
 
         ///
@@ -211,6 +225,8 @@ pub mod sorted_queue {
 mod tests {
     use super::sorted_queue::*;
 
+    use std::collections::HashMap;
+
     #[test]
     fn compare_tuple() {
         let x = (4, "hello");
@@ -245,5 +261,66 @@ mod tests {
             let (_, emp) = queue.deq().unwrap();
             dbg!(emp);
         }
+    }
+
+    #[derive(PartialEq, Eq, Hash)]
+    struct Node {
+        weight: i32,
+        index: usize,
+    }
+
+    #[test]
+    fn graph_queue() {
+        let mut adjacency_list: Vec<Vec<(usize, i32)>> = vec![
+            vec![(1, 4), (2, 3)],
+            vec![(2, 5), (3, 2)],
+            vec![(3, 7)],
+            vec![(4, 2)],
+            vec![(0, 4), (1, 4), (5, 6)],
+            vec![],
+        ];
+        let mut nodes = vec![];
+        nodes.push(Node {weight: 0, index: 0});
+        for i in 1..adjacency_list.len() {
+            nodes.push(Node {weight: i32::MAX, index: i});
+        }
+        let mut queue: SortedQueue<i32, Node> = SortedQueue::new(false);
+        for i in 1..adjacency_list.len() {
+            queue.enq(i32::MAX, &nodes[i]);
+        }
+        let mut weights = vec![i32::MAX; 6];
+        weights[0] = 0;
+        let mut path = HashMap::new();
+        path.insert(0, 0);
+        let (mut cur_weight, mut cur_node) = (0, &nodes[0]);
+        loop {
+            for adj in adjacency_list[cur_node.index].iter() {
+                let (index, weight) = adj;
+                let total_weight = weight + cur_weight;
+                if total_weight < weights[*index] {
+                    queue.change_priority(total_weight, &nodes[*index]).unwrap();
+                    weights[*index] = total_weight;
+                    path.insert(*index, cur_node.index);
+                }
+            }
+            if queue.size() == 0 {
+                break;
+            }
+            let cur = queue.deq().unwrap();
+            cur_weight = cur.0;
+            cur_node = cur.1;
+        }
+        let mut traversal = vec![];
+        let mut next = 5;
+        loop {
+            traversal.push(next);
+            if next != 0 {
+                next = *path.get(&next).unwrap();
+            } else {
+                break;
+            }
+        }
+        traversal.reverse();
+        dbg!(traversal);
     }
 }
